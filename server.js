@@ -25,7 +25,7 @@ if (!process.env.PLAYWRIGHT_BROWSERS_PATH && process.platform === 'win32') {
 
 const SCAN_JS   = fs.readFileSync(path.join(__dirname, '!!!Final_Formular_Scan_v35.js'), 'utf8');
 const FORM_URL  = 'https://www.formulare-bfinv.de/ffw/action/invoke.do?id=1400';
-const PORT      = process.env.PORT || 3400;
+const PORT      = process.env.PORT || 3500;
 const JOBS_DIR  = path.join(os.tmpdir(), 'formular-jobs');
 if (!fs.existsSync(JOBS_DIR)) fs.mkdirSync(JOBS_DIR, { recursive: true });
 
@@ -203,8 +203,10 @@ async function runJob(jobId, excelPath, emitter) {
     if (match) {
       const [, sec, text] = match;
       const pct = Math.min(5 + Math.round(parseInt(sec) / 3), 75);
-      emit(emitter, 'log', text.replace(/%c/g, ''));
-      emit(emitter, 'progress', { pct, text: text.replace(/%c/g, '').slice(0, 60) });
+      // Playwright appends CSS args from %c console.log calls – strip them
+      const clean = text.replace(/%c/g, '').replace(/\s+color:[^;]+;[^\s]*$/i, '').trim();
+      emit(emitter, 'log', clean);
+      emit(emitter, 'progress', { pct, text: clean.slice(0, 60) });
     } else if (/FERTIG/.test(t)) {
       emit(emitter, 'log', '✓ Scan abgeschlossen');
       emit(emitter, 'progress', { pct: 80, text: 'Scan abgeschlossen' });
