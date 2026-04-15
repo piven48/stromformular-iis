@@ -13,6 +13,16 @@ const { EventEmitter } = require('events');
 const { chromium } = require('playwright');
 const { parseExcel, runComparison, generateExcel } = require('./compare');
 
+// Playwright Chromium-Pfad für IIS-Server:
+// IIS App-Pool läuft als eigener User → sucht Chromium im geteilten Ordner C:\ms-playwright
+// (IT muss diesen Pfad mit: set PLAYWRIGHT_BROWSERS_PATH=C:\ms-playwright && npx playwright install chromium anlegen)
+if (!process.env.PLAYWRIGHT_BROWSERS_PATH && process.platform === 'win32') {
+  const sharedPath = 'C:\\ms-playwright';
+  if (fs.existsSync(sharedPath)) {
+    process.env.PLAYWRIGHT_BROWSERS_PATH = sharedPath;
+  }
+}
+
 const SCAN_JS   = fs.readFileSync(path.join(__dirname, '!!!Final_Formular_Scan_v35.js'), 'utf8');
 const FORM_URL  = 'https://www.formulare-bfinv.de/ffw/action/invoke.do?id=1400';
 const PORT      = process.env.PORT || 3400;
@@ -120,10 +130,15 @@ app.get('/progress/:jobId', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
+  // IIS-Fix: Buffering deaktivieren damit Fortschritt sofort ankommt
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
   res.flushHeaders();
 
   const send = (type, data) => {
     res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
+    // IIS-Fix: nach jedem Event explizit flushen
+    if (typeof res.flush === 'function') res.flush();
   };
 
   // Bereits abgeschlossene Jobs direkt melden
